@@ -1,0 +1,8 @@
+opencv-python==4.13.0.92
+Pillow==10.4.0
+torch==2.9.1
+torchvision==0.24.1
+numpy==2.2.6
+ultralytics==8.4.12
+docling==2.75.0
+docling-core==2.66.0
