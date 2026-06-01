@@ -34,54 +34,56 @@ class DocProcessor:
         if not md_text:
             return ""
 
-        lower_vn_chars = 'a-zđàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ'
+        md_text = self._remove_page_numbers_and_breaks(md_text)
+        md_text = self._fix_ocr_basic_numbers(md_text)
+        md_text = self._standardize_list_structure(md_text)
+        md_text = self._track_dual_sequences(md_text)
+        md_text = self._clean_garbage_and_headers(md_text)
 
-        # 0. DỌN SỐ TRANG (Sửa đúng lỗi: Tránh số trang gộp vào dòng dưới thành "6 b)")
+        return md_text
+
+    # xoa so trang
+    def _remove_page_numbers_and_breaks(self, md_text: str) -> str:
+        lower_vn_chars = 'a-zđàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ'
         md_text = re.sub(r'^\s*\d+\s*$\n+', '', md_text, flags=re.MULTILINE)
 
-        # 1. SỬA LỖI DOCLING TỰ NGẮT DÒNG VÀ CHÈN SỐ (Sửa đúng lỗi: Tránh gộp "hiện a)")
         md_text = re.sub(
             fr'([^\n.:])\n\s*(?:-\s*)?(?:\d+\.\s+)?(["“”]?\s*[{lower_vn_chars}])(?!\))',
             r'\1 \2',
             md_text
         )
+        return md_text
 
-        # ==========================================================
-        # 2. XỬ LÝ LỖI OCR ĐỌC DÍNH VÀ SỐ CHỒNG SỐ CƠ BẢN
-        # ==========================================================
+    # xu ly ocr doc dinh va chong so
+    def _fix_ocr_basic_numbers(self, md_text: str) -> str:
         md_text = re.sub(r'^\s*\d+\.\s*(\d+)', r'\1', md_text, flags=re.MULTILINE)
         md_text = re.sub(r'(\d+)[c:]+\s*', r'\1. ', md_text)
+        return md_text
 
-        # ==========================================================
-        # 3. CHUẨN HÓA CẤU TRÚC DANH SÁCH
-        # ==========================================================
-        # ---> FIX MỚI: Xóa dòng rác chỉ chứa mỗi số đếm ảo (VD: "9. \n") <---
+    # chuan hoa cau truc danh sach
+    def _standardize_list_structure(self, md_text: str) -> str:
         md_text = re.sub(r'^\s*\d+\.\s*$\n+', '', md_text, flags=re.MULTILINE)
 
-        # ---> FIX MỚI: Xóa số đếm ảo do Docling chèn trước đoạn trích dẫn (VD: '11. "5. ' -> '"5. ') <---
+        # Xóa số đếm ảo do Docling chèn trước đoạn trích dẫn
         md_text = re.sub(r'^\s*\d+\.\s+(["“”]\s*[a-zA-ZđĐ0-9]+[\.\)])', r'\1', md_text, flags=re.MULTILINE)
-        # -------------------------------------------------------------------------
 
-        # Tách các danh sách bị viết liền thành đoạn (Inline lists)
+        # Tách các danh sách bị viết liền thành đoạn
         md_text = re.sub(r'([;.]\s+)(["“”]?\s*[a-zA-ZđĐ0-9]\))', r'\1\n- \2', md_text)
 
-        # Xóa số ảo, cụm từ rác (như bM) trước điểm chữ
+        # Xóa số ảo, cụm từ rác trước điểm chữ
         md_text = re.sub(r'^\s*(?:-\s*)?\d+\.\s*(?:[a-zA-Z0-9_]{1,3}\s+)*[:;\-\.\s]*(["“”]?\s*[a-zA-ZđĐ]\))', r'\1', md_text, flags=re.MULTILINE)
 
-        # Xóa các ký tự lót đường (1, I, i, l, !, ^...) TRƯỚC ĐIỂM CHỮ (VD: "1 a)" hoặc "^ a)" -> "a)")
+        # Xóa các ký tự lót đường TRƯỚC ĐIỂM CHỮ
         md_text = re.sub(r'^\s*(?:-\s*)?[1Iil|!i\^;:\.\-\s]*\s+(["“”]?\s*[a-zA-ZđĐ]\))', r'\1', md_text, flags=re.MULTILINE)
 
-        # Xóa nhiễu gáy sách TRƯỚC KHOẢN SỐ (VD: "1 3." hoặc "! 4." -> "3.")
-        # Bắt "1 3.", "- 1 4." hoặc "## 1 2." -> Giữ lại "3.", "- 4." và "## 2."
+        # Xóa nhiễu gáy sách TRƯỚC KHOẢN SỐ
         md_text = re.sub(r'^(\s*(?:#+\s*)?(?:-\s*)?)[1Iil|!i\^;:\.\-]+\s+(\d+\.)', r'\1\2', md_text, flags=re.MULTILINE)
 
-        # Xóa nhiễu rác lọt thỏm ở CUỐI DÒNG (VD: "sau đây: 1" -> "sau đây:")
+        # Xóa nhiễu rác lọt thỏm ở CUỐI DÒNG
         md_text = re.sub(r'([:;])\s+[1Iil|!i\^;:\.\-]\s*$', r'\1', md_text, flags=re.MULTILINE)
 
-        # Sửa "6. : a)" hoặc "6. a)" thành "a)"
+        # Sửa dọn dẹp các ký hiệu lặp thừa trước điểm chữ
         md_text = re.sub(r'^\s*(?:-\s*)?\d+\.\s*[:;\-\.\s]*(["“”]?\s*[a-zA-ZđĐ]\))', r'\1', md_text, flags=re.MULTILINE)
-
-        # Sửa ": a)", "- : a)" hoặc "- . a)" đứng đầu dòng thành "a)"
         md_text = re.sub(r'^\s*(?:-\s*)?[:;\-\.]\s*(["“”]?\s*[a-zA-ZđĐ0-9]\))', r'\1', md_text, flags=re.MULTILINE)
 
         # Xóa gạch ngang thừa trước số
@@ -93,9 +95,10 @@ class DocProcessor:
         # Xóa dấu hai chấm/chấm phẩy/chấm rác ngay SAU mục list
         md_text = re.sub(r'^(\s*-\s*["“”]?\s*[a-zA-ZđĐ0-9]\))\s*[:;\.]\s*', r'\1 ', md_text, flags=re.MULTILINE)
 
-        # ==========================================================
-        # 4. BỘ THEO DÕI CHUỖI KÉP (DUAL SEQUENCE TRACKER)
-        # ==========================================================
+        return md_text
+
+    # tracker chuoi kep
+    def _track_dual_sequences(self, md_text: str) -> str:
         vn_alphabet = ['a', 'b', 'c', 'd', 'đ', 'e', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'x', 'y']
         expected_next_char = {vn_alphabet[i]: vn_alphabet[i + 1] for i in range(len(vn_alphabet) - 1)}
 
@@ -127,16 +130,15 @@ class DocProcessor:
                 elif char in expected_next_char:
                     current_expected_char = expected_next_char.get(char)
 
-        md_text = '\n'.join(lines)
+        return '\n'.join(lines)
 
-        # 5. DỌN DẸP KÝ TỰ RÁC VÀ QUỐC HIỆU
+    # don dep ky tu ra va quoc hieu
+    def _clean_garbage_and_headers(self, md_text: str) -> str:
         md_text = re.sub(r"^\s*(?:[a-zA-Z0-9]|[.,:;_\-|\'\"*`~]{1,2})\s*$\n+", '', md_text, flags=re.MULTILINE)
         md_text = re.sub(r'^\s*[:]\s*$', '', md_text, flags=re.MULTILINE)
 
+        # Xử lý heading "Điều"
         md_text = re.sub(r'^\s*-\s*(Điều\s+\d+)', r'## \1', md_text, flags=re.MULTILINE | re.IGNORECASE)
-        # ---------------------------------------------------------------------------------------------
-
-        # Bóc số đếm ảo của Docling và ép thành định dạng Heading chuẩn
         md_text = re.sub(
             r'^(?:##\s*)?\d+\.\s*(Điều\s+\d+)',
             r'## \1',
@@ -144,11 +146,14 @@ class DocProcessor:
             flags=re.MULTILINE | re.IGNORECASE
         )
 
+        # Xử lý Quốc hiệu
         md_text = re.sub(
             r'(CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM)\s+(Độc lập\s*-\s*Tự do\s*-\s*Hạnh phúc)',
             r'\1\n\2',
             md_text, flags=re.IGNORECASE
         )
+
+        # Format heading Điều
         md_text = re.sub(
             r'##\s*(\d+\.[^\n]*?)\s*\n+\s*(?:##\s*)?Điều',
             r'## Điều \1',
@@ -156,6 +161,7 @@ class DocProcessor:
         )
         md_text = re.sub(r'##\s*Điều\s*\n+(?=\d+\.)', r'**Điều:** ', md_text)
 
+        # Dọn dẹp khoảng trắng
         md_text = re.sub(r'\n{3,}', '\n\n', md_text)
         md_text = re.sub(r'^[ \t]+', '', md_text, flags=re.MULTILINE)
 
