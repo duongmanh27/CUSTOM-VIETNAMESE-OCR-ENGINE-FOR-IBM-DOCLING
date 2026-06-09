@@ -55,4 +55,3 @@ The pre-trained model weights (`weight.zip`) are password-protected to prevent u
 
 To obtain the **FREE** extraction password, or if you have any questions regarding this project, please feel free to reach out to me:
 * **📧 Email:** [duongmanh608@gmail.com](mailto:duongmanh608@gmail.com)
-* 
