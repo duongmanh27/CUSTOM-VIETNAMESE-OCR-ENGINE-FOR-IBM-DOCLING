@@ -51,6 +51,7 @@ unzip weight.zip
 ```
 ## 📬 Contact & Weights Password
 
+
 The pre-trained model weights (`weight.zip`) are password-protected to prevent unauthorized distribution. 
 
 To obtain the **FREE** extraction password, or if you have any questions regarding this project, please feel free to reach out to me:
