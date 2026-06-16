@@ -50,7 +50,7 @@ Extract the archive using the following commands:
 unzip weight.zip
 ```
 ## 📬 Contact & Weights Password
-
+⭐️ If this project helped you, please give it a star! Thanks a lot! ⭐️
 
 The pre-trained model weights (`weight.zip`) are password-protected to prevent unauthorized distribution. 
 
